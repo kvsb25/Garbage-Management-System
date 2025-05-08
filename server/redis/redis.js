@@ -1,0 +1,79 @@
+const Redis = require("redis");
+const redisClient = Redis.createClient();
+const constants = require('../constants/redis.js');
+
+redisClient.on("error", (err) => console.error("Redis Error:", err));
+
+(async () => {
+    await redisClient.connect();
+    console.log("Connected to Redis.");
+})();
+
+const getOrSetCache = async (key, cb, exp = null) => {
+    try {
+
+        console.log(key);
+        const data = await redisClient.get(key);
+        
+        console.log((data) ? `data: ${data}` : "Cache Miss");
+
+        if (data != null) return (JSON.parse(data));
+        
+        const freshData = await cb();
+        
+        console.log((freshData) ? `fresh data: ${freshData}` : "Cache Hit");
+        
+        if (exp !== null) {
+
+            await redisClient.setEx(key, exp, JSON.stringify(freshData));
+        } else {
+            
+            await redisClient.set(key, JSON.stringify(freshData));
+        }
+        
+        return freshData;
+
+    } catch (err) {
+
+        console.error("Redis error: ", err);
+        throw new Error(`Redis err: ${err}`);
+
+    }
+}
+
+const setCache = async (key, data, exp = null) => {
+    try{
+
+        if (exp !== null) {
+            await redisClient.setEx(key, exp, JSON.stringify(data));
+        } else {
+            await redisClient.set(key, JSON.stringify(data));
+        }
+
+    } catch(err) {
+        
+        console.error("Redis error: ", err);
+        throw new Error(`Redis err: ${err}`);
+    
+    }
+}
+
+const getCache = async (key) => {
+    try{
+
+        const data = await redisClient.get(key);
+        if(data != null){
+            return JSON.parse(data);
+        } else {
+            return undefined
+        }
+
+    } catch(err) {
+        
+        console.error("Redis error: ", err);
+        throw new Error(`Redis err: ${err}`);
+    
+    }
+}
+
+module.exports = {getOrSetCache, setCache, getCache}

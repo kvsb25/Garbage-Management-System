@@ -3,6 +3,8 @@ const mongoose = require("mongoose");
 const regionSchema = new mongoose.Schema({
     name: {
         type: String,
+        unique: true,
+        index: true,
         required: [true, "a name is required"],
     },
     area: {
