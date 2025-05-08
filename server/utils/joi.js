@@ -3,7 +3,8 @@ const Joi = require('joi');
 const valid = {
     regions: ['area1', 'area2', 'area3', 'area4'],
     roles: ['admin', 'customer'],
-    slots: ['morning', 'afternoon', 'evening']
+    slots: ['morning', 'afternoon', 'evening'],
+    updateKey: ['username', 'email', 'phone', 'region', 'slot'],
 }
 
 const regex = {
@@ -13,35 +14,61 @@ const regex = {
     disallowHtml: /^[^<>]*$/,
 }
 
-const signUpSchema = {
+const signUpSchema = Joi.object({
     username: Joi.string().required(),
     password: Joi.string().pattern(regex.disallowHtml).required(),
     email: Joi.string().pattern(regex.email).required(),
     phone: Joi.string().length(10).required(),
     role: Joi.string().valid(...valid.roles).required(),
-    slot: Joi.alternatives().conditional('role', { 
-        is: 'admin', 
-        then: Joi.string().valid(...valid.slots).required(), 
-        otherwise: Joi.any().strip() 
+    slot: Joi.alternatives().conditional('role', {
+        is: 'admin',
+        then: Joi.string().valid(...valid.slots).required(),
+        otherwise: Joi.any().strip()
     }),
     region: Joi.alternatives().conditional('role', {
         is: 'admin',
         then: Joi.string().valid(...valid.regions).required(),
         otherwise: Joi.any().strip()
     })
-};
+});
 
-const loginSchema = {
+const loginSchema = Joi.object({
     username: Joi.string().required(),
     password: Joi.string().pattern(regex.disallowHtml).required(),
-}
-
-const adminSchema = Joi.object({
-    username: Joi.string().required(),
-    password: Joi.string().required(),
-    email: Joi.string().pattern(/^[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/).required(),
-    phone: Joi.string().length(10).required(),
-    role: Joi.string().valid('admin').required()
 })
 
-module.exports = {signUpSchema, loginSchema}
+const Joi = require('joi');
+
+// const updateCustomerSchema = Joi.object({
+//     updates: Joi.array().items(
+//         Joi.object({
+//             key: Joi.string().valid('email', 'phone',),
+//             value: Joi.alternatives().conditional('key', [
+//                 {
+//                     is: 'email',
+//                     then: Joi.string()
+//                         .pattern(regex.email)
+//                         .message('Invalid email (e.g., user@example.com)'),
+//                 },
+//                 {
+//                     is: 'phone',
+//                     then: Joi.string()
+//                         .pattern(/^(\+91|0)?[6-9]\d{9}$/) // Indian phone regex
+//                         .message('Must be a valid Indian phone (10 digits, starts with 6-9)'),
+//                 },
+//                 {
+//                     otherwise: Joi.string(),
+//                 },
+//             ]),
+//         })
+//     ),
+// });
+
+const updateCustomerSchema = Joi.object({
+    updates: Joi.object({
+        email: Joi.string().pattern(regex.email),
+        phone: Joi.string().pattern(regex.phone),
+    })
+})
+
+module.exports = { signUpSchema, loginSchema, updateCustomerSchema }

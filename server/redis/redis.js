@@ -1,6 +1,5 @@
 const Redis = require("redis");
 const redisClient = Redis.createClient();
-const constants = require('../constants/redis.js');
 
 redisClient.on("error", (err) => console.error("Redis Error:", err));
 
@@ -14,23 +13,23 @@ const getOrSetCache = async (key, cb, exp = null) => {
 
         console.log(key);
         const data = await redisClient.get(key);
-        
+
         console.log((data) ? `data: ${data}` : "Cache Miss");
 
         if (data != null) return (JSON.parse(data));
-        
+
         const freshData = await cb();
-        
+
         console.log((freshData) ? `fresh data: ${freshData}` : "Cache Hit");
-        
+
         if (exp !== null) {
 
             await redisClient.setEx(key, exp, JSON.stringify(freshData));
         } else {
-            
+
             await redisClient.set(key, JSON.stringify(freshData));
         }
-        
+
         return freshData;
 
     } catch (err) {
@@ -42,7 +41,7 @@ const getOrSetCache = async (key, cb, exp = null) => {
 }
 
 const setCache = async (key, data, exp = null) => {
-    try{
+    try {
 
         if (exp !== null) {
             await redisClient.setEx(key, exp, JSON.stringify(data));
@@ -50,30 +49,68 @@ const setCache = async (key, data, exp = null) => {
             await redisClient.set(key, JSON.stringify(data));
         }
 
-    } catch(err) {
-        
+    } catch (err) {
+
         console.error("Redis error: ", err);
         throw new Error(`Redis err: ${err}`);
-    
+
     }
 }
 
 const getCache = async (key) => {
-    try{
+    try {
 
         const data = await redisClient.get(key);
-        if(data != null){
+        if (data != null) {
             return JSON.parse(data);
         } else {
             return undefined
         }
 
-    } catch(err) {
-        
+    } catch (err) {
+
         console.error("Redis error: ", err);
         throw new Error(`Redis err: ${err}`);
-    
+
     }
 }
 
-module.exports = {getOrSetCache, setCache, getCache}
+const updateCache = async (key, updates, exp = null) => {
+    try {
+
+        let data = await getCache(key);
+
+        if (data) {
+
+            // updates.forEach(update => {
+            //     if (update.key in data) {
+            //         data[update.key] = update.value;
+            //         console.log('updated');
+            //     }
+            // });
+
+            for (const [key, value] of Object.entries(updates)) {
+                if (key in data) {
+                  data[key] = value;
+                }
+            }
+
+        } else {
+
+            throw new Error(`fetched data is undefined, data: ${data}`);
+
+        }
+
+        await setCache(key, data, exp);
+
+        return data;
+
+    } catch (err) {
+
+        console.error("Redis error: ", err);
+        throw new Error(`Redis err: ${err}`);
+
+    }
+}
+
+module.exports = { getOrSetCache, setCache, getCache, updateCache }

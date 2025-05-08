@@ -5,14 +5,15 @@ const path = require("path");
 const router = require('./routes');
 const ExpressError = require('./error');
 const cookieParser = require('cookie-parser');
+const {verifyRole, verifyUser} = require('./middleware');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser(process.env.COOKIE_SECRET));
 
 app.use('/auth', router.auth);
-app.use('/admin', router.admin);
-app.use('/customer', router.customer);
+app.use('/admin', verifyUser, verifyRole('admin'), router.admin);
+app.use('/customer', verifyUser, verifyRole('customer'), router.customer);
 
 app.use((error, req, res, next)=>{
     if(error instanceof ExpressError){
