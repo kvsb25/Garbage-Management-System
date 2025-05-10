@@ -71,4 +71,20 @@ const updateCustomerSchema = Joi.object({
     })
 })
 
-module.exports = { signUpSchema, loginSchema, updateCustomerSchema }
+const ticketSchema = Joi.object({
+  location: Joi.object({
+    type: Joi.string().valid('Point').default('Point'),
+    coordinates: Joi.array().items(Joi.number()).length(2).required(),
+  }).required(),
+
+  slot: Joi.string().valid('morning', 'afternoon', 'evening').required(),
+
+  note: Joi.string()
+    .allow('', null)
+    .optional()
+    .default(undefined, 'Strip if empty')
+    .transform((value) => (value === '' || value === null ? undefined : value)),
+    
+}).options({ stripUnknown: true });
+
+module.exports = { signUpSchema, loginSchema, updateCustomerSchema, ticketSchema, Joi }

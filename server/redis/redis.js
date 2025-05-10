@@ -75,6 +75,18 @@ const getCache = async (key) => {
     }
 }
 
+// updates: {
+//     key1: newValue,
+//     key2: newValue
+// }
+
+// updates:{
+//     note:{
+//         author: 'username',
+//         message: 'message from author',
+//     }
+// }
+
 const updateCache = async (key, updates, exp = null) => {
     try {
 
@@ -89,11 +101,19 @@ const updateCache = async (key, updates, exp = null) => {
             //     }
             // });
 
-            for (const [key, value] of Object.entries(updates)) {
-                if (key in data) {
-                  data[key] = value;
+            if(updates.note){
+                data.note ??= [];
+                data.note.push(updates.note);
+            } else {
+                for (const [key, value] of Object.entries(updates)) {
+                    if (key in data) {
+                      data[key] = value;
+                    }
                 }
+
+                // Object.entries(updates).forEach(([key, value])=>{if(key in data) data.key = value});
             }
+
 
         } else {
 
@@ -113,4 +133,8 @@ const updateCache = async (key, updates, exp = null) => {
     }
 }
 
-module.exports = { getOrSetCache, setCache, getCache, updateCache }
+const deleteCache = async (key)=>{
+    await redisClient.del(key);
+}
+
+module.exports = { getOrSetCache, setCache, getCache, updateCache, deleteCache }
