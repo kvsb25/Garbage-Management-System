@@ -1,4 +1,5 @@
 const Redis = require("redis");
+const Region = require("../database/model/region");
 const redisClient = Redis.createClient();
 
 redisClient.on("error", (err) => console.error("Redis Error:", err));
@@ -136,5 +137,14 @@ const updateCache = async (key, updates, exp = null) => {
 const deleteCache = async (key)=>{
     await redisClient.del(key);
 }
+
+// init redis with regions
+(async () => {
+    let regions = await Region.find({}).select('_id name');
+
+    regions.forEach((region)=>{
+        setCache(`region:${region.name}`, region._id);
+    })
+})()
 
 module.exports = { getOrSetCache, setCache, getCache, updateCache, deleteCache }

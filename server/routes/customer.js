@@ -139,7 +139,10 @@ router.route("/ticket/:id")
                 let temp = ticket.createdAt;
 
                 if(temp instanceof Date){
-                    temp = temp.toISOString(); 
+                    // to convert time to Indian Standard Time
+                    const istDate = new Date(temp.getTime() + (5.5 * 60 * 60 * 1000));
+                    temp = istDate.toISOString();
+                    // temp = temp.toISOString();
                 }
                 const [dateOfCreation, timeOfCreation] = [temp.slice(0, 10), temp.slice(11, 16)];
                 //
@@ -162,7 +165,7 @@ router.route("/ticket/:id")
 
         }
     })
-    .post( async (req, res) => { 
+    .patch( async (req, res) => { 
         try{
 
             const user = req.user;
