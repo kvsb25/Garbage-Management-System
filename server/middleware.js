@@ -13,7 +13,7 @@ const verifyUser = (req, res, next) => {
 
     if(user){
         req.user = redis.getOrSetCache(`${user.role}:${user._id}`, async ()=>{
-            const data = await User.findOne({username: user.username}).select(forRole(user.role));
+            const data = await User.findOne({username: user.username}).select(forRole(user.role)).lean(); // storing plain javascript object in req.user and cache
             return data;
         }, constants.redis.DEFAULT_EXPIRATION);
     } else {

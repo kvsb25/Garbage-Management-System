@@ -1,25 +1,34 @@
 const express = require('express')
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const User = require('../database/model/user');
 const joi = require('../utils/joi.js');
 const ExpressError = require('../error.js');
+const redis = require('../redis/redis.js');
 
 router.route('/signup')
     .post(async (req, res) => {
         try {
 
-            // signup schema validations
             const { error } = joi.signUpSchema.validate(req.body);
             if (error) throw new ExpressError(400, 'Inappropriate request body');
 
             req.body.password = await bcrypt.hash(req.body.password, 10);
+
+            //
+            const region = await redis.getCache(`region:${req.body.region}`);
+            req.body.region = typeof region._id === 'string'
+                ? new mongoose.Types.ObjectId(region._id)
+                : region._id;
+            //
+
             let details = req.body;
 
             console.log(details)
 
-            let newUser = new User(details);
+            let newUser = new User(details);  // storing mongoose object in DB
             newUser.save();
 
             const accessToken = jwt.sign({ _id: newUser._id.toString(), username: newUser.username, role: newUser.role }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
@@ -65,7 +74,7 @@ router.route('/login')
 
             let user = User.findOne({ username: req.body.username });
 
-            if(!user) throw new ExpressError(401, 'wrong username')
+            if (!user) throw new ExpressError(401, 'wrong username')
 
             if (await bcrypt.compare(req.body.password, user.password)) {
 
@@ -106,18 +115,18 @@ router.route('/login')
     })
 
 router.route('/generate-token')
-    .post((req, res)=>{
+    .post((req, res) => {
         try {
 
             const refreshToken = req.signedCookies.refreshToken;
-            if (!refreshToken) {throw new ExpressError(403, 'Forbidden')}
+            if (!refreshToken) { throw new ExpressError(403, 'Forbidden') }
 
             jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
 
-                if(err) throw new ExpressError(403, 'Forbidden: unauthorized refresh token');
-        
+                if (err) throw new ExpressError(403, 'Forbidden: unauthorized refresh token');
+
                 const accessToken = jwt.sign({ _id: user._id, username: user.username, role: user.role }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15min' });
-        
+
                 res.cookie('token', accessToken, {
                     signed: true,
                     httpOnly: true,
@@ -128,7 +137,7 @@ router.route('/generate-token')
 
                 return res.sendStatus(200);
             })
-            
+
         } catch (error) {
             console.error(error);
 

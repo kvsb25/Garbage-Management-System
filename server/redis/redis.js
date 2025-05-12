@@ -102,13 +102,13 @@ const updateCache = async (key, updates, exp = null) => {
             //     }
             // });
 
-            if(updates.note){
+            if (updates.note) {
                 data.note ??= [];
                 data.note.push(updates.note);
             } else {
                 for (const [key, value] of Object.entries(updates)) {
                     if (key in data) {
-                      data[key] = value;
+                        data[key] = value;
                     }
                 }
 
@@ -134,17 +134,30 @@ const updateCache = async (key, updates, exp = null) => {
     }
 }
 
-const deleteCache = async (key)=>{
+const deleteCache = async (key) => {
     await redisClient.del(key);
 }
 
-// init redis with regions
+// init region cache
 (async () => {
-    let regions = await Region.find({}).select('_id name');
+    try {
+        const regions = await Region.find({})/*.select('_id name')*/;
 
-    regions.forEach((region)=>{
-        setCache(`region:${region.name}`, region._id);
-    })
-})()
+        await Promise.all(
+            regions.map(region =>
+                Promise.all([
+                    setCache(`region:${region.name}`, region.toObject()),
+                    setCache(`region:${region._id}`, region.toObject())
+                ])
+            )
+        );
+
+        console.log(`Successfully cached ${regions.length} regions`);
+
+    } catch (error) {
+        console.error('Error initializing region cache:', error);
+        throw new Error(`Redis err: ${err}`);
+    }
+})();
 
 module.exports = { getOrSetCache, setCache, getCache, updateCache, deleteCache }
