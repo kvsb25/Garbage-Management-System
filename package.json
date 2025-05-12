@@ -9,5 +9,16 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.14.1",
     "redis": "^5.0.1"
-  }
+  },
+  "name": "garbage-management-system",
+  "version": "1.0.0",
+  "main": "./server/app.js",
+  "devDependencies": {},
+  "scripts": {
+    "dev": "nodemon app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
 }

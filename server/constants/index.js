@@ -1,5 +1,6 @@
 const redis = require('./redis');
 const joi = require('./joi');
+const region = require('./region');
 
 const slot = {
     morning: {
@@ -20,4 +21,5 @@ module.exports = {
     redis,
     joi,
     slot,
+    region
 }

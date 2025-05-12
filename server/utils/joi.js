@@ -1,5 +1,5 @@
 const Joi = require('joi');
-const {VALID, REGEX} = require('../constants').joi
+const { VALID, REGEX } = require('../constants').joi
 
 const valid = {
     regions: ['area1', 'area2', 'area3', 'area4'],
@@ -38,8 +38,6 @@ const loginSchema = Joi.object({
     password: Joi.string().pattern(REGEX.disallowHtml).required(),
 })
 
-const Joi = require('joi');
-
 // const updateCustomerSchema = Joi.object({
 //     updates: Joi.array().items(
 //         Joi.object({
@@ -77,24 +75,26 @@ const updateAdminSchema = Joi.object({
         email: Joi.string().pattern(REGEX.email),
         phone: Joi.string().pattern(REGEX.phone),
         region: Joi.string().valid(...VALID.regions),
-        slot: Joi.string().valid(...VALID.slots)
+        slot: Joi.string().valid(...VALID.slots),
     })
 })
 
 const ticketSchema = Joi.object({
-  location: Joi.object({
-    type: Joi.string().valid('Point').default('Point'),
-    coordinates: Joi.array().items(Joi.number()).length(2).required(),
-  }).required(),
 
-  slot: Joi.string().valid('morning', 'afternoon', 'evening').required(),
+    location: Joi.object({
+        type: Joi.string().valid('Point').default('Point'),
+        coordinates: Joi.array().items(Joi.number()).length(2).required(),
+    }).required(),
 
-  note: Joi.string()
-    .allow('', null)
-    .optional()
-    .default(undefined, 'Strip if empty')
-    .transform((value) => (value === '' || value === null ? undefined : value)),
-    
+    slot: Joi.string().valid('morning', 'afternoon', 'evening').required(),
+
+    note: Joi.string()
+        .allow('', null)
+        .optional()
+        .custom((value, helpers) => {
+            return (value === '' || value === null) ? undefined : value;
+        }),
+
 }).options({ stripUnknown: true });
 
 module.exports = { signUpSchema, loginSchema, updateCustomerSchema, updateAdminSchema, ticketSchema, Joi }

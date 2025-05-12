@@ -5,7 +5,10 @@ const User = require('../database/model/user.js');
 const Ticket = require('../database/model/ticket.js');
 const ExpressError = require('../error');
 const redis = require('../redis/redis.js');
-const { DEFAULT_EXPIRATION } = require('../constants').redis;
+const constants = require('../constants');
+const { DEFAULT_EXPIRATION } = constants.redis;
+const { PARENT_REGION } = constants.region;
+const { isPointInPolygon } = require('../utils/miscellaneous.js');
 
 
 router.route("/")
@@ -81,17 +84,22 @@ router.route("/ticket")
         }
     })
     .post(async (req, res) => {
+
         try {
 
             const user = req.user;
             let { error } = joi.ticketSchema.validate(req.body);
             if (error) { throw new ExpressError(400, 'Invalid request body') };
 
+            if (!(isPointInPolygon(req.body.location, PARENT_REGION.coordinates))) {
+                throw new ExpressError(400, 'choose a location within the designated working area');
+            }
+
             // if note exists then store the ticket with note as an array
             console.log(typeof req.body.note == 'string');
-            if(req.body.note && (typeof req.body.note == 'string')){
+            if (req.body.note && (typeof req.body.note == 'string')) {
                 let message = req.body.note;
-                req.body.note = [{author: `${user.username}`, message }]
+                req.body.note = [{ author: `${user.username}`, message }]
             }
 
             let ticket = new Ticket({ ...req.body, ownerId: user._id, status: 'active' }); // write-behind cache
@@ -99,13 +107,13 @@ router.route("/ticket")
             // 
             let temp = ticket.createdAt;
 
-            if(temp instanceof Date){
-                temp = temp.toISOString(); 
+            if (temp instanceof Date) {
+                temp = temp.toISOString();
             }
             const [dateOfCreation, timeOfCreation] = [temp.slice(0, 10), temp.slice(11, 16)];
             //
 
-            await redis.setCache(`ticket:${ticket._id}`, {...ticket, dateOfCreation, timeOfCreation});
+            await redis.setCache(`ticket:${ticket._id}`, { ...ticket, dateOfCreation, timeOfCreation });
 
             //implement write-behind cache later
             await ticket.save();
@@ -128,8 +136,9 @@ router.route("/ticket")
 
 router.route("/ticket/:id")
     .get(async (req, res) => {
+
         try {
-            
+
             let ticketId = req.params.id;
 
             let ticket = await redis.getOrSetCache(`ticket:${ticketId}`, async () => {
@@ -138,7 +147,7 @@ router.route("/ticket/:id")
                 //
                 let temp = ticket.createdAt;
 
-                if(temp instanceof Date){
+                if (temp instanceof Date) {
                     // to convert time to Indian Standard Time
                     const istDate = new Date(temp.getTime() + (5.5 * 60 * 60 * 1000));
                     temp = istDate.toISOString();
@@ -146,7 +155,7 @@ router.route("/ticket/:id")
                 }
                 const [dateOfCreation, timeOfCreation] = [temp.slice(0, 10), temp.slice(11, 16)];
                 //
-                    
+
                 return { ...ticket, dateOfCreation, timeOfCreation };
             })
 
@@ -165,17 +174,17 @@ router.route("/ticket/:id")
 
         }
     })
-    .patch( async (req, res) => { 
-        try{
+    .patch(async (req, res) => {
+        try {
 
             const user = req.user;
             let ticketId = req.params.id;
 
-            let {error} = joi.Joi.object({note: joi.Joi.string().required()}).validate(req.body);
-            if(error){throw new ExpressError(400, 'Inappropriate request body')};
+            let { error } = joi.Joi.object({ note: joi.Joi.string().required() }).validate(req.body);
+            if (error) { throw new ExpressError(400, 'Inappropriate request body') };
 
             const updates = {
-                note:{
+                note: {
                     author: `${user.username}`,
                     message: req.body.note,
                 }
@@ -202,8 +211,8 @@ router.route("/ticket/:id")
 
         }
     })
-    .delete(async (req, res) => { 
-        
+    .delete(async (req, res) => {
+
         try {
 
             let ticketId = req.params.id;

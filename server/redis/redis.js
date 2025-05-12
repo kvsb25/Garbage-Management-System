@@ -139,25 +139,31 @@ const deleteCache = async (key) => {
 }
 
 // init region cache
-(async () => {
+const initRegionCache = async () => {
+    
     try {
         const regions = await Region.find({})/*.select('_id name')*/;
 
-        await Promise.all(
-            regions.map(region =>
-                Promise.all([
-                    setCache(`region:${region.name}`, region.toObject()),
-                    setCache(`region:${region._id}`, region.toObject())
-                ])
-            )
-        );
-
-        console.log(`Successfully cached ${regions.length} regions`);
+        if(regions.length > 0){
+            await Promise.all(
+                regions.map(region =>
+                    Promise.all([
+                        setCache(`region:${region.name}`, region.toObject()),
+                        setCache(`region:${region._id}`, region.toObject())
+                    ])
+                )
+            );
+            
+            console.log(`Successfully cached ${regions.length} regions`);
+        } else {
+            console.log(`No regions available`);
+        }
 
     } catch (error) {
         console.error('Error initializing region cache:', error);
-        throw new Error(`Redis err: ${err}`);
+        throw new Error(`Redis err: ${error}`);
     }
-})();
 
-module.exports = { getOrSetCache, setCache, getCache, updateCache, deleteCache }
+};
+
+module.exports = { getOrSetCache, setCache, getCache, updateCache, deleteCache, initRegionCache }
