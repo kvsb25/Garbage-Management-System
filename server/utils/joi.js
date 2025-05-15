@@ -1,20 +1,6 @@
 const Joi = require('joi');
 const { VALID, REGEX } = require('../constants').joi
 
-const valid = {
-    regions: ['area1', 'area2', 'area3', 'area4'],
-    roles: ['admin', 'customer'],
-    slots: ['morning', 'afternoon', 'evening'],
-    updateKey: ['username', 'email', 'phone', 'region', 'slot'],
-}
-
-const regex = {
-    // email: /^[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/,
-    email: /^(?=[^<>]*$)[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/,
-    password: /^(?=[^<>]*$)(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{12,}$/, // Password must be at least 12 characters long, contain no < or > symbols, and include at least one uppercase letter, one lowercase letter, one number, and one special character
-    disallowHtml: /^[^<>]*$/,
-}
-
 const signUpSchema = Joi.object({
     username: Joi.string().required(),
     password: Joi.string().pattern(REGEX.disallowHtml).required(),
@@ -34,7 +20,7 @@ const signUpSchema = Joi.object({
 });
 
 const loginSchema = Joi.object({
-    username: Joi.string().required(),
+    username: Joi.string().pattern(REGEX.disallowHtml).required(),
     password: Joi.string().pattern(REGEX.disallowHtml).required(),
 })
 
@@ -86,7 +72,7 @@ const ticketSchema = Joi.object({
         coordinates: Joi.array().items(Joi.number()).length(2).required(),
     }).required(),
 
-    slot: Joi.string().valid('morning', 'afternoon', 'evening').required(),
+    slot: Joi.string().valid(...VALID.slots).required(),
 
     note: Joi.string()
         .allow('', null)

@@ -65,7 +65,7 @@ router.route("/ticket")
         try {
 
             const user = req.user;
-            const currTime = (new Date(Date.now() + (5.5 * 60 * 60 * 1000))).toISOString().split('T')[1].slice(0, 8);
+            const currTime = (new Date(Date.now()/* + (5.5 * 60 * 60 * 1000)*/)).toISOString().split('T')[1].slice(0, 8);
 
             const { start, end } = slot[user.slot];
             if (!(start <= currTime && end >= currTime)) {
@@ -131,9 +131,9 @@ router.route("/ticket/:id")
 
                 if (temp instanceof Date) {
                     // to convert time to Indian Standard Time
-                    const istDate = new Date(temp.getTime() + (5.5 * 60 * 60 * 1000));
-                    temp = istDate.toISOString();
-                    // temp = temp.toISOString();
+                    // const istDate = new Date(temp.getTime() + (5.5 * 60 * 60 * 1000));
+                    // temp = istDate.toISOString();
+                    temp = temp.toISOString();
                 }
                 const [dateOfCreation, timeOfCreation] = [temp.slice(0, 10), temp.slice(11, 16)];
                 //
@@ -174,13 +174,15 @@ router.route("/ticket/:id")
                 }
             }
 
-            await redis.updateCache(`ticket:${ticketId}`, updates);
+            let data = await redis.updateCache(`ticket:${ticketId}`, updates);
 
             //implement write-behind cache later
             let ticket = Ticket.findById(ticketId);
             ticket.note ??= [];
             ticket.note.push(updates.note);
             await ticket.save();
+
+            return res.status(200).send(data);
 
         } catch (error) {
 

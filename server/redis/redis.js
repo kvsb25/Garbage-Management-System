@@ -111,7 +111,6 @@ const updateCache = async (key, updates, exp = null) => {
                         data[key] = value;
                     }
                 }
-
                 // Object.entries(updates).forEach(([key, value])=>{if(key in data) data.key = value});
             }
 

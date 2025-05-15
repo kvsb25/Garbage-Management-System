@@ -105,7 +105,7 @@ router.route("/ticket")
             let ticket = new Ticket({ ...req.body, ownerId: user._id, status: 'active' }); // write-behind cache
 
             // 
-            let temp = ticket.createdAt;
+            let temp = ticket.createdAt = new Date(Date.now()/* + (5.5 * 60 * 60 * 1000)*/);  // instead of converting to IST everywhere, just convert it here
 
             if (temp instanceof Date) {
                 temp = temp.toISOString();
@@ -118,7 +118,7 @@ router.route("/ticket")
             //implement write-behind cache later
             await ticket.save();
 
-            return res.status(200).send(ticket);
+            return res.status(200).send({ ...ticket, dateOfCreation, timeOfCreation });
 
         } catch (error) {
 
@@ -148,10 +148,7 @@ router.route("/ticket/:id")
                 let temp = ticket.createdAt;
 
                 if (temp instanceof Date) {
-                    // to convert time to Indian Standard Time
-                    const istDate = new Date(temp.getTime() + (5.5 * 60 * 60 * 1000));
-                    temp = istDate.toISOString();
-                    // temp = temp.toISOString();
+                    temp = temp.toISOString();
                 }
                 const [dateOfCreation, timeOfCreation] = [temp.slice(0, 10), temp.slice(11, 16)];
                 //
@@ -190,13 +187,15 @@ router.route("/ticket/:id")
                 }
             }
 
-            await redis.updateCache(`ticket:${ticketId}`, updates);
+            let data = await redis.updateCache(`ticket:${ticketId}`, updates);
 
             //implement write-behind cache later
             let ticket = Ticket.findById(ticketId);
             ticket.note ??= [];
             ticket.note.push(updates.note);
             await ticket.save();
+
+            return res.status(200).send(data);
 
         } catch (error) {
 
