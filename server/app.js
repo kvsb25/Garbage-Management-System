@@ -16,9 +16,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser(process.env.COOKIE_SECRET));
 
-app.use('/auth', router.auth);
-app.use('/admin', verifyUser, verifyRole('admin'), router.admin);
-app.use('/customer', verifyUser, verifyRole('customer'), router.customer);
+app.use('/api/v1/auth', router.auth);
+app.use('/api/v1/admin', verifyUser, verifyRole('admin'), router.admin);
+app.use('/api/v1/customer', verifyUser, verifyRole('customer'), router.customer);
 
 app.use((error, req, res, next) => {
     if (error instanceof ExpressError) {

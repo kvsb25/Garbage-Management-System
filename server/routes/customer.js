@@ -118,7 +118,7 @@ router.route("/ticket")
             //implement write-behind cache later
             await ticket.save();
 
-            return res.status(200).send({ ...ticket, dateOfCreation, timeOfCreation });
+            return res.status(201).send({ ...ticket, dateOfCreation, timeOfCreation });
 
         } catch (error) {
 
