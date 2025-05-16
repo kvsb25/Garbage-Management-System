@@ -16,8 +16,6 @@ router.route('/signup')
             const { error } = joi.signUpSchema.validate(req.body);
             if (error) throw new ExpressError(400, 'Inappropriate request body');
 
-            
-
             req.body.password = await bcrypt.hash(req.body.password, 10);
 
             //
