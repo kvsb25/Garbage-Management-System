@@ -16,9 +16,7 @@ router.route('/signup')
             const { error } = joi.signUpSchema.validate(req.body);
             if (error) throw new ExpressError(400, 'Inappropriate request body');
 
-            if (!(redis.checkAndAddBloomFilter('user:username', req.body.username))){
-                throw new ExpressError(409, `Username already in use`);
-            }
+            
 
             req.body.password = await bcrypt.hash(req.body.password, 10);
 

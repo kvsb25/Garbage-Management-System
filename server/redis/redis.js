@@ -7,8 +7,6 @@ redisClient.on("error", (err) => console.error("Redis Error:", err));
 
 (async () => {
     await redisClient.connect();
-    let res = await client.bf.reserve('user:username', 0.01, 1000);
-    if (!res) throw new Error('bloom filter not initialized');
     console.log("Connected to Redis.");
 })();
 
@@ -168,10 +166,4 @@ const initRegionCache = async () => {
 
 };
 
-const checkAndAddBloomFilter = async (key, value) => {
-    const res = await client.bf.add(`${key}`,`${value}`); // checks and adds value to bloom filter if not already present
-
-    return res; 
-}
-
-module.exports = { getOrSetCache, setCache, getCache, updateCache, deleteCache, initRegionCache, checkAndAddBloomFilter }
+module.exports = { getOrSetCache, setCache, getCache, updateCache, deleteCache, initRegionCache }
