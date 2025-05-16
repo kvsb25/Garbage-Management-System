@@ -1,11 +1,14 @@
 const Redis = require("redis");
 const Region = require("../database/model/region");
+const ExpressError = require("../error");
 const redisClient = Redis.createClient();
 
 redisClient.on("error", (err) => console.error("Redis Error:", err));
 
 (async () => {
     await redisClient.connect();
+    let res = await client.bf.reserve('user:username', 0.01, 1000);
+    if (!res) throw new Error('bloom filter not initialized');
     console.log("Connected to Redis.");
 })();
 
@@ -139,11 +142,11 @@ const deleteCache = async (key) => {
 
 // init region cache
 const initRegionCache = async () => {
-    
+
     try {
         const regions = await Region.find({})/*.select('_id name')*/;
 
-        if(regions.length > 0){
+        if (regions.length > 0) {
             await Promise.all(
                 regions.map(region =>
                     Promise.all([
@@ -152,7 +155,7 @@ const initRegionCache = async () => {
                     ])
                 )
             );
-            
+
             console.log(`Successfully cached ${regions.length} regions`);
         } else {
             console.log(`No regions available`);
@@ -165,4 +168,10 @@ const initRegionCache = async () => {
 
 };
 
-module.exports = { getOrSetCache, setCache, getCache, updateCache, deleteCache, initRegionCache }
+const checkAndAddBloomFilter = async (key, value) => {
+    const res = await client.bf.add(`${key}`,`${value}`); // checks and adds value to bloom filter if not already present
+
+    return res; 
+}
+
+module.exports = { getOrSetCache, setCache, getCache, updateCache, deleteCache, initRegionCache, checkAndAddBloomFilter }

@@ -7,6 +7,7 @@ const User = require('../database/model/user');
 const joi = require('../utils/joi.js');
 const ExpressError = require('../error.js');
 const redis = require('../redis/redis.js');
+const { required } = require('joi');
 
 router.route('/signup')
     .post(async (req, res) => {
@@ -14,6 +15,10 @@ router.route('/signup')
 
             const { error } = joi.signUpSchema.validate(req.body);
             if (error) throw new ExpressError(400, 'Inappropriate request body');
+
+            if (!(redis.checkAndAddBloomFilter('user:username', req.body.username))){
+                throw new ExpressError(409, `Username already in use`);
+            }
 
             req.body.password = await bcrypt.hash(req.body.password, 10);
 
@@ -55,6 +60,14 @@ router.route('/signup')
 
         } catch (error) {
             console.error(error);
+            
+            
+            if(error instanceof mongoose.Error.ValidatorError){
+                if(error.errors['username'].kind == 'required'){
+                    const err = new ExpressError(409, `Username already in use`);
+                    return next(err);
+                }
+            };
 
             if (!(error instanceof ExpressError)) {
                 const err = new ExpressError(500, `${error}`);
@@ -134,7 +147,7 @@ router.route('/generate-token')
                     maxAge: 15 * 60 * 1000,
                     // sameSite: "Strict",
                 });
-
+                
                 return res.sendStatus(200);
             })
 
