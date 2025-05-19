@@ -88,7 +88,7 @@ router.route("/ticket")
                             }
                         }
                     }
-                });
+                }).select('-note');
 
                 return tickets;
             });

@@ -63,6 +63,7 @@ const getCache = async (key) => {
     try {
 
         const data = await redisClient.get(key);
+        console.log(data);
         if (data != null) {
             return JSON.parse(data);
         } else {

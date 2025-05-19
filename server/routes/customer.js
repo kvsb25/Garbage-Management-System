@@ -12,9 +12,10 @@ const { isPointInPolygon } = require('../utils/miscellaneous.js');
 
 
 router.route("/")
-    .get((req, res) => {
+    .get((req, res, next) => {
         try {
 
+            console.log('reached /customer')
             return res.status(200).send({ ...req.user });
 
         } catch (error) {
@@ -29,7 +30,7 @@ router.route("/")
             return next(error);
         }
     })
-    .patch(async (req, res) => {
+    .patch(async (req, res, next) => {
 
         try {
 
@@ -58,13 +59,16 @@ router.route("/")
     })
 
 router.route("/ticket")
-    .get(async (req, res) => {
+    .get(async (req, res, next) => {
 
         try {
 
             const user = req.user;
             const tickets = await redis.getOrSetCache(`${user.role}:${user._id}:tickets`, async () => {
                 const tickets = Ticket.find({ ownerId: user._id }).select('-ownerId -note');
+
+                // update createdAt to IST from UTC
+                console.log(tickets);
                 return tickets;
             }, DEFAULT_EXPIRATION);
 
@@ -83,16 +87,51 @@ router.route("/ticket")
 
         }
     })
-    .post(async (req, res) => {
+    .post(async (req, res, next) => {
 
         try {
 
             const user = req.user;
             let { error } = joi.ticketSchema.validate(req.body);
-            if (error) { throw new ExpressError(400, 'Invalid request body') };
+            if (error) { 
+                console.error(error);
+                throw new ExpressError(400, 'Invalid request body') 
+            };
 
-            if (!(isPointInPolygon(req.body.location, PARENT_REGION.coordinates))) {
+            if (!(isPointInPolygon(req.body.location.coordinates, PARENT_REGION ))) {
                 throw new ExpressError(400, 'choose a location within the designated working area');
+            }
+
+            let tempTickets = await redis.getCache(`${user.role}:${user._id}:tickets`);
+            let duplicate = false;
+            
+            console.log(tempTickets);
+            if(tempTickets != null){
+                // duplicate = (req.body.location.coordinates == tempTicket[0].location.coordinates);
+                duplicate = tempTickets.some((ticket)=> ticket.location.coordinates == req.body.location.coordinates);
+                console.log('duplicate in redis fetch: ', duplicate);
+            } else {
+                let tickets = await Ticket.find({ ownerId: user._id }).select('location');
+                console.log(tickets);
+                // duplicate = (req.body.location.coordinates == ticket.location.coordinates);
+                if(tickets){
+                    // duplicate = tickets.some((ticket)=> (ticket.location.coordinates == req.body.location.coordinates));
+                    tickets.forEach((ticket)=>{
+                        console.log(ticket.location.coordinates);
+                        if((ticket.location.coordinates[0] == req.body.location.coordinates[0])){
+                            if((ticket.location.coordinates[1] == req.body.location.coordinates[1]))
+                            duplicate = true;
+                        }
+                    })
+
+                    console.log('duplicate in mongoDB fetch: ', duplicate);
+                }
+            }
+
+            console.log('duplicate: ', duplicate);
+
+            if(duplicate){
+                throw new ExpressError(409, 'duplicate entry');
             }
 
             // if note exists then store the ticket with note as an array
@@ -101,6 +140,8 @@ router.route("/ticket")
                 let message = req.body.note;
                 req.body.note = [{ author: `${user.username}`, message }]
             }
+
+            console.log("POST /customer/ticket; req.body: ", req.body);
 
             let ticket = new Ticket({ ...req.body, ownerId: user._id, status: 'active' }); // write-behind cache
 
@@ -114,17 +155,21 @@ router.route("/ticket")
             //
 
             await redis.setCache(`ticket:${ticket._id}`, { ...ticket, dateOfCreation, timeOfCreation });
+            // await redis.setCache(`${user.role}:${user._id}:tickets`, { ...ticket, dateOfCreation, timeOfCreation });
 
             //implement write-behind cache later
             await ticket.save();
 
-            return res.status(201).send({ ...ticket, dateOfCreation, timeOfCreation });
+            console.log("POST /customer/ticket; ticket: ", {...ticket.toJSON()});
+
+            return res.status(201).send({ ...ticket.toJSON(), dateOfCreation, timeOfCreation });
 
         } catch (error) {
 
             console.error(error);
+            console.log(error instanceof ExpressError);
 
-            if (!(error instanceof ExpressError)) {
+            if (!(error instanceof ExpressError)  && !(error.status)) {
                 const err = new ExpressError(500, `${error}`);
                 return next(err);
             }
@@ -135,7 +180,7 @@ router.route("/ticket")
     })
 
 router.route("/ticket/:id")
-    .get(async (req, res) => {
+    .get(async (req, res, next) => {
 
         try {
 
@@ -148,12 +193,15 @@ router.route("/ticket/:id")
                 let temp = ticket.createdAt;
 
                 if (temp instanceof Date) {
+                    // to convert time to Indian Standard Time
+                    // const istDate = new Date(temp.getTime() + (5.5 * 60 * 60 * 1000));
+                    // temp = istDate.toISOString();
                     temp = temp.toISOString();
                 }
                 const [dateOfCreation, timeOfCreation] = [temp.slice(0, 10), temp.slice(11, 16)];
                 //
 
-                return { ...ticket, dateOfCreation, timeOfCreation };
+                return { ...ticket.toJSON(), dateOfCreation, timeOfCreation };
             })
 
             return res.status(200).send(ticket);
@@ -171,7 +219,7 @@ router.route("/ticket/:id")
 
         }
     })
-    .patch(async (req, res) => {
+    .patch(async (req, res, next) => {
         try {
 
             const user = req.user;
@@ -190,7 +238,7 @@ router.route("/ticket/:id")
             let data = await redis.updateCache(`ticket:${ticketId}`, updates);
 
             //implement write-behind cache later
-            let ticket = Ticket.findById(ticketId);
+            let ticket = await Ticket.findById(ticketId);
             ticket.note ??= [];
             ticket.note.push(updates.note);
             await ticket.save();
@@ -210,7 +258,7 @@ router.route("/ticket/:id")
 
         }
     })
-    .delete(async (req, res) => {
+    .delete(async (req, res, next) => {
 
         try {
 

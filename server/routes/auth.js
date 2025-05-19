@@ -13,16 +13,20 @@ router.route('/signup')
     .post(async (req, res) => {
         try {
 
+            console.log(req.body);
+
             const { error } = joi.signUpSchema.validate(req.body);
             if (error) throw new ExpressError(400, 'Inappropriate request body');
 
             req.body.password = await bcrypt.hash(req.body.password, 10);
 
             //
-            const region = await redis.getCache(`region:${req.body.region}`);
-            req.body.region = typeof region._id === 'string'
-                ? new mongoose.Types.ObjectId(region._id)
-                : region._id;
+            if(req.body.region){
+                const region = await redis.getCache(`region:${req.body.region}`);
+                req.body.region = typeof region._id === 'string'
+                    ? new mongoose.Types.ObjectId(region._id)
+                    : region._id;
+            }
             //
 
             let details = req.body;
@@ -81,7 +85,9 @@ router.route('/login')
             const { error } = joi.loginSchema.validate(req.body);
             if (error) throw new ExpressError(400, 'Inappropriate request body');
 
-            let user = User.findOne({ username: req.body.username });
+            let user = await User.findOne({ username: req.body.username });
+
+            console.log(user);
 
             if (!user) throw new ExpressError(401, 'wrong username')
 

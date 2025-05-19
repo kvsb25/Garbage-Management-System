@@ -10,7 +10,7 @@ const connect = async () => {
 
     await mongoose.connect('mongodb://127.0.0.1:27017/GMS');
     console.log('connected to MongoDB.');
-    await initRegions(REGIONS);
+    // await initRegions(REGIONS);
     console.log('Database initailized successfully');
     await initRegionCache();
 
