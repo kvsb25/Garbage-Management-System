@@ -3,9 +3,13 @@ const joi = require('./joi');
 const region = require('./region');
 
 const slot = {
+    // morning: {
+    //     start: '09:00:00',
+    //     end: '10:30:00'
+    // },
     morning: {
-        start: '09:00:00',
-        end: '10:30:00'
+        start: '00:00:00',
+        end: '23:30:00'
     },
     afternoon: {
         start: '13:00:00',

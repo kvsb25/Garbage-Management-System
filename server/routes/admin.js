@@ -7,11 +7,11 @@ const Ticket = require('../database/model/ticket.js');
 const ExpressError = require('../error');
 const redis = require('../redis/redis.js');
 const { DEFAULT_EXPIRATION } = require('../constants').redis;
-const slot = require('../constants').slot;
+const SLOT = require('../constants').slot;
 
 
 router.route("/")
-    .get(async (req, res) => {
+    .get(async (req, res, next) => {
 
         try {
 
@@ -31,7 +31,7 @@ router.route("/")
         }
 
     })
-    .patch(async (req, res) => {
+    .patch(async (req, res, next) => {
 
         try {
 
@@ -40,6 +40,8 @@ router.route("/")
             if (error) { throw new ExpressError(400, 'Inappropriate request body') };
 
             let data = await redis.updateCache(`${user.role}:${user._id}`, req.body.updates, DEFAULT_EXPIRATION);
+            
+            req.body.updates.region = (await redis.getCache(`region:${req.body.updates.region}`))._id;
 
             await User.findByIdAndUpdate(user._id, req.body.updates); // later add a queue for storing in database, implement write-behind caching
 
@@ -60,14 +62,14 @@ router.route("/")
     })
 
 router.route("/ticket")
-    .get(async (req, res) => { /* fetch all tickets for admin based on their slot if and only if the current time falls within their slot timing. Also give the shortest path to traverse. Try limiting number of requests(rate limiting) for an IP to prevent inconsistency */
+    .get(async (req, res, next) => { /* fetch all tickets for admin based on their slot if and only if the current time falls within their slot timing. Also give the shortest path to traverse. Try limiting number of requests(rate limiting) for an IP to prevent inconsistency */
 
         try {
 
             const user = req.user;
             const currTime = (new Date(Date.now()/* + (5.5 * 60 * 60 * 1000)*/)).toISOString().split('T')[1].slice(0, 8);
 
-            const { start, end } = slot[user.slot];
+            const { start, end } = SLOT[user.slot];
             if (!(start <= currTime && end >= currTime)) {
                 throw new ExpressError(403, 'Forbidden, try again in your time slot');
             }
@@ -77,14 +79,14 @@ router.route("/ticket")
             const region = await redis.getCache(`region:${user.region}`);
 
 
-            let tickets = redis.getOrSetCache(`ticket:${user.slot}:${region.name}`, async () => {
+            let tickets = await redis.getOrSetCache(`ticket:${user.slot}:${region.name}`, async () => {
                 let tickets = await Ticket.find({
                     slot: user.slot,
                     location: {
                         $geoWithin: {
                             $geometry: {
                                 type: 'Polygon',
-                                coordinates: [region.area.coordinates]
+                                coordinates: region.area.coordinates
                             }
                         }
                     }
@@ -93,13 +95,19 @@ router.route("/ticket")
                 return tickets;
             });
 
+            console.log("GET /admin/ticket; tickets: ", tickets);
+            console.log("GET /admin/ticket; tickets: ",typeof tickets);
+
             // find the shortest path and return
 
             const coords = tickets.map(ticket => ticket.location.coordinates);
 
-            const shortestPath = getShortestPath(coords);
+            const shortestPath = await getShortestPath(coords);
 
-            return res.status(200).send({tickets, shortestPath});
+
+            const response = shortestPath ? {tickets, shortestPath} : {tickets};
+
+            return res.status(200).send(response);
 
         } catch (error) {
 
@@ -117,7 +125,7 @@ router.route("/ticket")
     })
 
 router.route("/ticket/:id")
-    .get(async (req, res) => {
+    .get(async (req, res, next) => {
 
         try {
 
@@ -138,7 +146,7 @@ router.route("/ticket/:id")
                 const [dateOfCreation, timeOfCreation] = [temp.slice(0, 10), temp.slice(11, 16)];
                 //
 
-                return { ...ticket, dateOfCreation, timeOfCreation };
+                return { ...ticket.toJSON(), dateOfCreation, timeOfCreation };
             })
 
             return res.status(200).send(ticket);
@@ -157,7 +165,7 @@ router.route("/ticket/:id")
         }
 
     })
-    .patch(async (req, res) => {
+    .patch(async (req, res, next) => {
 
         try {
 
@@ -177,7 +185,7 @@ router.route("/ticket/:id")
             let data = await redis.updateCache(`ticket:${ticketId}`, updates);
 
             //implement write-behind cache later
-            let ticket = Ticket.findById(ticketId);
+            let ticket = await Ticket.findById(ticketId);
             ticket.note ??= [];
             ticket.note.push(updates.note);
             await ticket.save();
@@ -198,7 +206,7 @@ router.route("/ticket/:id")
         }
 
     })
-    .put(async (req, res) => {
+    .put(async (req, res, next) => {
         try {
 
             const user = req.user;
@@ -213,6 +221,8 @@ router.route("/ticket/:id")
             //implement write-behind cache later
 
             await Ticket.findByIdAndUpdate(ticketId, updates);
+
+            return res.status(200).send('ticket closed');
 
         } catch (error) {
 
@@ -231,6 +241,17 @@ router.route("/ticket/:id")
 module.exports = router;
 
 async function getShortestPath(coords) {
+    if (!Array.isArray(coords) || coords.length < 2) {
+        // throw new Error('At least 2 coordinates are required for routing.');/
+        return false;
+    }
+
+    for (const c of coords) {
+        if (!Array.isArray(c) || c.length !== 2 || isNaN(c[0]) || isNaN(c[1])) {
+            throw new Error('Invalid coordinate format. Each point must be [lon, lat] with numeric values.');
+        }
+    }
+
     const coordStr = coords.map(c => `${c[0]},${c[1]}`).join(';');
     const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`;
 
@@ -238,12 +259,30 @@ async function getShortestPath(coords) {
         const res = await axios.get(url);
         const route = res.data.routes[0];
         return {
-            distance: route.distance, // in meters
-            duration: route.duration, // in seconds
-            geometry: route.geometry  // GeoJSON LineString
+            distance: route.distance,
+            duration: route.duration,
+            geometry: route.geometry
         };
     } catch (err) {
-        console.error('Axios: Error fetching route:', err.message);
+        console.error('Axios: Error fetching route:', err.response?.status, err.response?.data || err.message);
         throw new Error('Axios error');
     }
 }
+
+// async function getShortestPath(coords) {
+//     const coordStr = coords.map(c => `${c[0]},${c[1]}`).join(';');
+//     const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`;
+
+//     try {
+//         const res = await axios.get(url);
+//         const route = res.data.routes[0];
+//         return {
+//             distance: route.distance, // in meters
+//             duration: route.duration, // in seconds
+//             geometry: route.geometry  // GeoJSON LineString
+//         };
+//     } catch (err) {
+//         console.error('Axios: Error fetching route:', err.message);
+//         throw new Error('Axios error');
+//     }
+// }

@@ -3,8 +3,8 @@ const { VALID, REGEX } = require('../constants').joi
 
 const signUpSchema = Joi.object({
     username: Joi.string().required(),
-    password: Joi.string().pattern(REGEX.disallowHtml).required(),
     email: Joi.string().pattern(REGEX.email).required(),
+    password: Joi.string().pattern(REGEX.disallowHtml).required(),
     phone: Joi.string().length(10).required(),
     role: Joi.string().valid(...VALID.roles).required(),
     slot: Joi.alternatives().conditional('role', {

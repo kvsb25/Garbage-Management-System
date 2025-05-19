@@ -10,13 +10,16 @@ const redis = require('../redis/redis.js');
 const { required } = require('joi');
 
 router.route('/signup')
-    .post(async (req, res) => {
+    .post(async (req, res, next) => {
         try {
 
             console.log(req.body);
 
             const { error } = joi.signUpSchema.validate(req.body);
-            if (error) throw new ExpressError(400, 'Inappropriate request body');
+            if (error) {
+                console.error(error.details);
+                throw new ExpressError(400, `Inappropriate request body: ${error.details[0].message}`);
+            }
 
             req.body.password = await bcrypt.hash(req.body.password, 10);
 
@@ -79,7 +82,7 @@ router.route('/signup')
     })
 
 router.route('/login')
-    .post(async (req, res) => {
+    .post(async (req, res, next) => {
         try {
 
             const { error } = joi.loginSchema.validate(req.body);
@@ -130,7 +133,7 @@ router.route('/login')
     })
 
 router.route('/generate-token')
-    .post((req, res) => {
+    .post((req, res, next) => {
         try {
 
             const refreshToken = req.signedCookies.refreshToken;

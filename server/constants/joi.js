@@ -1,5 +1,5 @@
 const VALID = {
-    regions: ['area1', 'area2', 'area3', 'area4'],
+    regions: ['region1', 'region2', 'region3', 'region4'],
     roles: ['admin', 'customer'],
     slots: ['morning', 'afternoon', 'evening'],
     updateKey: ['username', 'email', 'phone', 'region', 'slot'],
